@@ -1,0 +1,173 @@
+/*
+ * Copyright (c) 2023, Adam <Adam@sigterm.info>
+ * Copyright (c) 2023, Melxin <https://github.com/melxin>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+package com.openosrs.interfaceparser;
+
+import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.TypeSpec;
+import org.gradle.api.file.Directory;
+import org.gradle.api.file.FileTree;
+import org.gradle.api.logging.Logger;
+import org.gradle.api.logging.Logging;
+import org.tomlj.Toml;
+import org.tomlj.TomlParseError;
+import org.tomlj.TomlParseResult;
+import org.tomlj.TomlTable;
+import java.io.File;
+import java.io.IOException;
+import java.util.stream.Collectors;
+import javax.lang.model.element.Modifier;
+
+public class InterfaceParser implements InterfaceParserTaskHandler
+{
+	//@Parameter(defaultValue = "${project}")
+	//private MavenProject project;
+
+	private FileTree input;
+	private Directory output;
+
+	private static final Logger log = Logging.getLogger(InterfaceParser.class);
+
+	public InterfaceParser(FileTree input, Directory output)
+	{
+		this.input = input;
+		this.output = output;
+	}
+
+	@Override
+	public void execute() throws RuntimeException
+	{
+		TypeSpec.Builder interfaceType = TypeSpec.classBuilder("InterfaceID")
+			.addModifiers(Modifier.PUBLIC, Modifier.FINAL);
+
+		TypeSpec.Builder componentType = TypeSpec.classBuilder("ComponentID")
+			.addModifiers(Modifier.PUBLIC, Modifier.FINAL);
+
+		for (File file : input.getFiles()
+			.stream()
+			.filter((file) -> file.getName().endsWith(".toml"))
+			.collect(Collectors.toSet())
+		)
+		{
+			executeOne(file, interfaceType, componentType);
+		}
+
+		writeClass("net.runelite.api.widgets", interfaceType.build());
+		writeClass("net.runelite.api.widgets", componentType.build());
+
+		// https://stackoverflow.com/a/30760908
+		//project.addCompileSourceRoot(outputDirectory.getAbsolutePath());
+	}
+
+	private void executeOne(File file, TypeSpec.Builder interfaceType, TypeSpec.Builder componentType) throws RuntimeException
+	{
+		TomlParseResult result;
+		try
+		{
+			result = Toml.parse(file.toPath());
+		}
+		catch (IOException e)
+		{
+			throw new RuntimeException("unable to read component file " + file.getName(), e);
+		}
+
+		if (result.hasErrors())
+		{
+			for (TomlParseError err : result.errors())
+			{
+				log.error(err.toString());
+			}
+			throw new RuntimeException("unable to parse component file " + file.getName());
+		}
+
+		for (var entry : result.entrySet())
+		{
+			var interfaceName = entry.getKey();
+			TomlTable tbl = (TomlTable) entry.getValue();
+
+			if (!tbl.contains("id"))
+			{
+				throw new RuntimeException("interface " + interfaceName + " has no id");
+			}
+
+			int interfaceId = (int) (long) tbl.getLong("id");
+			if (interfaceId < 0 || interfaceId > 0xffff)
+			{
+				throw new RuntimeException("interface id out of range for " + interfaceName);
+			}
+
+			addField(interfaceType, interfaceName.toUpperCase(), interfaceId, null);
+
+			for (var entry2 : tbl.entrySet())
+			{
+				var componentName = entry2.getKey();
+				if (componentName.equals("id"))
+				{
+					continue;
+				}
+
+				int id = (int) (long) entry2.getValue();
+				if (id < 0 || id > 0xffff)
+				{
+					throw new RuntimeException("component id out of range for " + componentName);
+				}
+
+				var fullName = interfaceName.toUpperCase() + "_" + componentName.toUpperCase();
+				var comment = interfaceId + ":" + id;
+				int componentId = (interfaceId << 16) | id;
+
+				addField(componentType, fullName, componentId, comment);
+			}
+		}
+	}
+
+	private static void addField(TypeSpec.Builder type, String name, int value, String comment)
+	{
+		FieldSpec.Builder field = FieldSpec.builder(int.class, name)
+			.addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+			.initializer("$L", value);
+		if (comment != null)
+		{
+			field.addJavadoc(comment);
+		}
+		type.addField(field.build());
+	}
+
+	private void writeClass(String pkg, TypeSpec type) throws RuntimeException
+	{
+		JavaFile javaFile = JavaFile.builder(pkg, type)
+			.build();
+
+		try
+		{
+			javaFile.writeTo(output.getAsFile());
+		}
+		catch (IOException e)
+		{
+			throw new RuntimeException("unable to write java class", e);
+		}
+	}
+}
