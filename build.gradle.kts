@@ -6,15 +6,17 @@
  * the LICENSE file in the root directory of this source tree.
  */
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.util.Collections.emptyList
 
 plugins {
     id("java-gradle-plugin")
     kotlin("jvm") version "1.7.0"
     `maven-publish`
+    `pmd`
 }
 
 group = "com.openosrs"
-version = "1.0.0"
+version = "1.0.1"
 
 repositories {
     mavenCentral()
@@ -29,6 +31,20 @@ dependencies {
     compileOnly(group = "org.projectlombok", name = "lombok", version = "1.18.20")
     implementation(group = "org.tomlj", name = "tomlj", version = "1.1.0")
     implementation(group = "com.squareup", name = "javapoet", version = "1.13.0")
+    implementation("net.sourceforge.pmd:pmd-core:6.44.0")
+    implementation("net.sourceforge.pmd:pmd-java:6.44.0")
+}
+
+tasks.withType<JavaCompile> {
+    options.encoding = "UTF-8"
+}
+
+tasks.withType<Pmd> {
+    ruleSetFiles = files("${project.projectDir}/pmd-ruleset.xml")
+    ruleSets = emptyList()
+    ignoreFailures = false
+    isConsoleOutput = true
+    enabled = true
 }
 
 gradlePlugin {

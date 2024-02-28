@@ -38,6 +38,7 @@ import org.tomlj.TomlParseResult;
 import org.tomlj.TomlTable;
 import java.io.File;
 import java.io.IOException;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
 
@@ -119,7 +120,7 @@ public class InterfaceParser implements InterfaceParserTaskHandler
 				throw new RuntimeException("interface id out of range for " + interfaceName);
 			}
 
-			addField(interfaceType, interfaceName.toUpperCase(), interfaceId, null);
+			addField(interfaceType, interfaceName.toUpperCase(Locale.ENGLISH), interfaceId, null);
 
 			for (var entry2 : tbl.entrySet())
 			{
@@ -135,7 +136,7 @@ public class InterfaceParser implements InterfaceParserTaskHandler
 					throw new RuntimeException("component id out of range for " + componentName);
 				}
 
-				var fullName = interfaceName.toUpperCase() + "_" + componentName.toUpperCase();
+				var fullName = interfaceName.toUpperCase(Locale.ENGLISH) + "_" + componentName.toUpperCase(Locale.ENGLISH);
 				var comment = interfaceId + ":" + id;
 				int componentId = (interfaceId << 16) | id;
 
