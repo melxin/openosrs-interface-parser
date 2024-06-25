@@ -16,7 +16,7 @@ plugins {
 }
 
 group = "com.openosrs"
-version = "1.0.1"
+version = "1.0.2"
 
 repositories {
     mavenCentral()
@@ -31,8 +31,8 @@ dependencies {
     compileOnly(group = "org.projectlombok", name = "lombok", version = "1.18.20")
     implementation(group = "org.tomlj", name = "tomlj", version = "1.1.0")
     implementation(group = "com.squareup", name = "javapoet", version = "1.13.0")
-    implementation("net.sourceforge.pmd:pmd-core:6.44.0")
-    implementation("net.sourceforge.pmd:pmd-java:6.44.0")
+    implementation(group = "net.sourceforge.pmd", name = "pmd-core", version = "7.2.0")
+    implementation(group = "net.sourceforge.pmd", name = "pmd-java", version = "7.2.0")
 }
 
 tasks.withType<JavaCompile> {
