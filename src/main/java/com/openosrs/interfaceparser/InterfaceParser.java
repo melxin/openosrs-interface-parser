@@ -38,7 +38,9 @@ import org.tomlj.TomlParseResult;
 import org.tomlj.TomlTable;
 import java.io.File;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
 
@@ -51,6 +53,9 @@ public class InterfaceParser implements InterfaceParserTaskHandler
 	private Directory output;
 
 	private static final Logger log = Logging.getLogger(InterfaceParser.class);
+
+	private final Set<Integer> seenInterfaces = new HashSet<>();
+	private final Set<Integer> seenComponents = new HashSet<>();
 
 	public InterfaceParser(FileTree input, Directory output)
 	{
@@ -120,6 +125,12 @@ public class InterfaceParser implements InterfaceParserTaskHandler
 				throw new RuntimeException("interface id out of range for " + interfaceName);
 			}
 
+			if (seenInterfaces.contains(interfaceId))
+			{
+				throw new RuntimeException("duplicate interface id " + interfaceId);
+			}
+			seenInterfaces.add(interfaceId);
+
 			addField(interfaceType, interfaceName.toUpperCase(Locale.ENGLISH), interfaceId, null);
 
 			for (var entry2 : tbl.entrySet())
@@ -139,6 +150,12 @@ public class InterfaceParser implements InterfaceParserTaskHandler
 				var fullName = interfaceName.toUpperCase(Locale.ENGLISH) + "_" + componentName.toUpperCase(Locale.ENGLISH);
 				var comment = interfaceId + ":" + id;
 				int componentId = (interfaceId << 16) | id;
+
+				if (seenComponents.contains(componentId))
+				{
+					throw new RuntimeException("duplicate component id " + comment);
+				}
+				seenComponents.add(componentId);
 
 				addField(componentType, fullName, componentId, comment);
 			}
