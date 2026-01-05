@@ -10,7 +10,7 @@ import java.util.Collections.emptyList
 
 plugins {
     id("java-gradle-plugin")
-    kotlin("jvm") version "1.7.0"
+    kotlin("jvm") version "1.8.0"
     `maven-publish`
     `pmd`
 }
